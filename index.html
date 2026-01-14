@@ -227,6 +227,30 @@
             background-color: #e53935;
         }
 
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background-color: #323232;
+            color: white;
+            padding: 14px 28px;
+            border-radius: 8px;
+            font-size: 15px;
+            z-index: 2000;
+            opacity: 0;
+            transition: all 0.3s ease;
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        .toast.success {
+            background-color: #4CAF50;
+        }
+
         .history-section .section-title {
             display: flex;
             justify-content: space-between;
@@ -407,41 +431,43 @@
                     <div class="radio-option">
                         <input type="radio" name="rent" id="rent6000" value="6000">
                         <label for="rent6000">6000元</label>
-                    </div>
-                </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
             </div>
             <div class="form-group">
                 <label class="form-label">水费单价</label>
                 <div class="input-row">
-                    <input type="number" id="waterPrice" value="5" min="0" step="0.1" oninput="calculateBill()">
+                    <input type="number" id="waterPrice" value="5" min="0" max="100" step="0.1" oninput="calculateBill()">
                     <span class="unit">元/度</span>
                 </div>
             </div>
             <div class="form-group">
                 <label class="form-label">水费度数</label>
                 <div class="input-row">
-                    <input type="number" id="waterDegree" placeholder="请输入水费度数" min="0" step="0.1" oninput="calculateBill()">
+                    <input type="number" id="waterDegree" placeholder="请输入水费度数" min="0" max="10000" step="0.1" oninput="calculateBill()">
                     <span class="unit">度</span>
                 </div>
             </div>
             <div class="form-group">
                 <label class="form-label">电费单价</label>
                 <div class="input-row">
-                    <input type="number" id="electricPrice" value="1" min="0" step="0.1" oninput="calculateBill()">
+                    <input type="number" id="electricPrice" value="1" min="0" max="10" step="0.1" oninput="calculateBill()">
                     <span class="unit">元/度</span>
                 </div>
             </div>
             <div class="form-group">
                 <label class="form-label">电费度数</label>
                 <div class="input-row">
-                    <input type="number" id="electricDegree" placeholder="请输入电费度数" min="0" step="0.1" oninput="calculateBill()">
+                    <input type="number" id="electricDegree" placeholder="请输入电费度数" min="0" max="10000" step="0.1" oninput="calculateBill()">
                     <span class="unit">度</span>
                 </div>
             </div>
             <div class="form-group">
                 <label class="form-label">垃圾费</label>
                 <div class="input-row">
-                    <input type="number" id="trashFeeInput" value="20" min="0" step="1" oninput="calculateBill()">
+                    <input type="number" id="trashFeeInput" value="20" min="0" max="1000" step="1" oninput="calculateBill()">
                     <span class="unit">元</span>
                 </div>
             </div>
@@ -501,6 +527,7 @@
 
     <script>
         const MONTH_NAMES = ['', '一', '二', '三', '四', '五', '六', '七', '八', '九', '十', '十一', '十二'];
+        const CSV_HEADERS = ['日期', '房租', '水费单价', '水费度数', '水费', '电费单价', '电费度数', '电费', '垃圾费', '总计'];
 
         function getCSVContent(headers, rows) {
             const csvRows = [headers.join(','), ...rows.map(row =>
@@ -530,9 +557,8 @@
             return `${prefix}_${dateStr}.csv`;
         }
 
-        function exportBillToCSV(bill) {
-            const headers = ['日期', '房租', '水费单价', '水费度数', '水费', '电费单价', '电费度数', '电费', '垃圾费', '总计'];
-            const row = [
+        function billToCSVRow(bill) {
+            return [
                 bill.date,
                 bill.rent,
                 bill.waterPrice || 5,
@@ -544,10 +570,11 @@
                 bill.trashFee || 20,
                 bill.total
             ];
+        }
 
-            const csvContent = getCSVContent(headers, [row]);
-            const filename = generateFilename();
-            downloadCSV(csvContent, filename);
+        function exportBillToCSV(bill) {
+            const csvContent = getCSVContent(CSV_HEADERS, [billToCSVRow(bill)]);
+            downloadCSV(csvContent, generateFilename());
         }
 
         function exportAllHistoryToCSV() {
@@ -558,24 +585,9 @@
                 return;
             }
 
-            const headers = ['日期', '房租', '水费单价', '水费度数', '水费', '电费单价', '电费度数', '电费', '垃圾费', '总计'];
-
-            const rows = history.map(bill => [
-                bill.date,
-                bill.rent,
-                bill.waterPrice || 5,
-                bill.waterDegree,
-                bill.waterFee,
-                bill.electricPrice || 1,
-                bill.electricDegree,
-                bill.electricFee,
-                bill.trashFee || 20,
-                bill.total
-            ]);
-
-            const csvContent = getCSVContent(headers, rows);
-            const filename = generateFilename();
-            downloadCSV(csvContent, filename);
+            const rows = history.map(billToCSVRow);
+            const csvContent = getCSVContent(CSV_HEADERS, rows);
+            downloadCSV(csvContent, generateFilename());
         }
 
         function getMonthLabel(year, month) {
@@ -645,11 +657,11 @@
 
         function calculateBill() {
             const rent = parseInt(document.querySelector('input[name="rent"]:checked').value) || 0;
-            const waterPrice = parseFloat(document.getElementById('waterPrice').value) || 0;
-            const waterDegree = parseFloat(document.getElementById('waterDegree').value) || 0;
-            const electricPrice = parseFloat(document.getElementById('electricPrice').value) || 0;
-            const electricDegree = parseFloat(document.getElementById('electricDegree').value) || 0;
-            const trashFee = parseFloat(document.getElementById('trashFeeInput').value) || 0;
+            const waterPrice = Math.max(0, parseFloat(document.getElementById('waterPrice').value) || 0);
+            const waterDegree = Math.max(0, parseFloat(document.getElementById('waterDegree').value) || 0);
+            const electricPrice = Math.max(0, parseFloat(document.getElementById('electricPrice').value) || 0);
+            const electricDegree = Math.max(0, parseFloat(document.getElementById('electricDegree').value) || 0);
+            const trashFee = Math.max(0, parseFloat(document.getElementById('trashFeeInput').value) || 0);
 
             const waterFee = waterDegree * waterPrice;
             const electricFee = electricDegree * electricPrice;
@@ -671,6 +683,16 @@
             return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
         }
 
+        function showToast(message, type = 'default') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = 'toast ' + type;
+            toast.classList.add('show');
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 2000);
+        }
+
         function saveBill() {
             const bill = calculateBill();
             bill.date = getSelectedDate();
@@ -682,7 +704,8 @@
 
             renderHistory();
 
-            alert('账单已保存！');
+            document.querySelector('.history-section').scrollIntoView({ behavior: 'smooth' });
+            showToast('账单已保存！', 'success');
         }
 
         function showBillText() {
@@ -753,7 +776,14 @@
                 return;
             }
 
-            historyList.innerHTML = history.map(bill => `
+            const sortedHistory = history.sort((a, b) => {
+                if (a.date !== b.date) {
+                    return b.date.localeCompare(a.date);
+                }
+                return b.id - a.id;
+            });
+
+            historyList.innerHTML = sortedHistory.map(bill => `
                 <div class="history-item">
                     <div class="history-header">
                         <span class="history-date">📅 ${bill.date}</span>
